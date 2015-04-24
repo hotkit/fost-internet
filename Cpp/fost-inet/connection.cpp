@@ -54,11 +54,25 @@ namespace {
 }
 
 
+struct ssl_data {
+    ssl_data(
+        boost::asio::io_service &io_service, boost::asio::ip::tcp::socket &sock
+    ) : ctx(io_service, boost::asio::ssl::context::sslv23_client),
+    ssl_sock(sock, ctx) {
+        ssl_sock.handshake(boost::asio::ssl::stream_base::client);
+    }
+
+    boost::asio::ssl::context ctx;
+    boost::asio::ssl::stream< boost::asio::ip::tcp::socket& > ssl_sock;
+};
+
+
 struct network_connection::state {
     int64_t number;
     timer time;
     boost::asio::io_service &io_service;
     std::unique_ptr<boost::asio::ip::tcp::socket > socket;
+    std::unique_ptr<ssl_data> ssl;
 
     state(boost::asio::io_service &io_service)
     : number(++g_network_counter), io_service(io_service) {
@@ -66,22 +80,6 @@ struct network_connection::state {
 };
 
 
-// struct ssl_data {
-//     ssl_data(
-//         boost::asio::io_service &io_service, boost::asio::ip::tcp::socket &sock
-//     ) : ctx(io_service, boost::asio::ssl::context::sslv23_client),
-//     ssl_sock(sock, ctx) {
-//         ssl_sock.handshake(boost::asio::ssl::stream_base::client);
-//     }
-//
-//     boost::asio::ssl::context ctx;
-//     boost::asio::ssl::stream< boost::asio::ip::tcp::socket& > ssl_sock;
-// };
-// struct network_connection::ssl : public ssl_data {
-//     ssl(boost::asio::io_service &io_service, boost::asio::ip::tcp::socket &sock)
-//     : ssl_data(io_service, sock) {
-//     }
-// };
 namespace {
 
 //     void handle_error(
