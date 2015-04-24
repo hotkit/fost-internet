@@ -13,12 +13,15 @@
 
 
 #include "fost-inet.hpp"
-#include <fost/insert>
 #include <fost/connection.hpp>
+
+#include <fost/insert>
 #include <fost/datetime>
+#include <fost/timer>
+
 #include <boost/asio/ssl.hpp>
-#include <boost/lambda/bind.hpp>
 #include <boost/lexical_cast.hpp>
+
 #include <atomic>
 
 
@@ -53,6 +56,7 @@ namespace {
 
 struct network_connection::state {
     int64_t number;
+    timer time;
     boost::asio::io_service &io_service;
     std::unique_ptr<boost::asio::ip::tcp::socket > socket;
     boost::asio::streambuf input_buffer;
