@@ -48,7 +48,12 @@ namespace {
         "Network settings", "Socks host", L"localhost:8888", true);
 
 
+    /// Counter for each network connection to help with tracking
     std::atomic<int64_t> g_network_counter{};
+
+
+    /// ASIO IO service for client connections
+    boost::asio::io_service g_client_service;
 
 
 }
@@ -74,8 +79,11 @@ struct network_connection::state {
     std::unique_ptr<boost::asio::ip::tcp::socket > socket;
     std::unique_ptr<ssl_data> ssl;
 
-    state(boost::asio::io_service &io_service)
-    : number(++g_network_counter), io_service(io_service) {
+    state(
+        boost::asio::io_service &io_service,
+        std::unique_ptr<boost::asio::ip::tcp::socket > s
+    ) : number(++g_network_counter), io_service(io_service),
+            socket(std::move(s)) {
     }
 };
 
@@ -278,18 +286,12 @@ namespace {
 }
 
 
-// fostlib::network_connection::network_connection(
-//     boost::asio::io_service &io_service, std::auto_ptr< boost::asio::ip::tcp::socket > socket
-// ) : connection_id(++g_network_counter),
-//         io_service(io_service),
-//         m_socket(socket),
-//         m_ssl_data(NULL) {
-// }
-//
-//
-// namespace {
-//     boost::asio::io_service g_io_service;
-// }
+fostlib::network_connection::network_connection(
+    boost::asio::io_service &io_service, std::unique_ptr< boost::asio::ip::tcp::socket > socket
+) : pimpl(new state(io_service, std::move(socket))) {
+}
+
+
 // fostlib::network_connection::network_connection(const host &h, nullable< port_number > p)
 // : connection_id(++g_network_counter),
 //         io_service(g_io_service),

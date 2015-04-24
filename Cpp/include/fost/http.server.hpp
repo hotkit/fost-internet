@@ -40,7 +40,7 @@ namespace fostlib {
                     /// Create a request from data on the provided socket
                     request(
                         boost::asio::io_service &,
-                        std::auto_ptr< boost::asio::ip::tcp::socket > connection);
+                        std::unique_ptr< boost::asio::ip::tcp::socket > connection);
                     /// This constructor is useful for mocking the request that doesn't get responded to
                     request(
                         const string &method, const url::filepath_string &filespec,

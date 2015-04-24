@@ -27,7 +27,9 @@ namespace fostlib {
         std::unique_ptr<state> pimpl;
     public:
         /// Used for server end points where accept returns a socket
-        network_connection(boost::asio::io_service &io_service, std::auto_ptr< boost::asio::ip::tcp::socket > socket);
+        network_connection(
+            boost::asio::io_service &io_service,
+            std::unique_ptr< boost::asio::ip::tcp::socket > socket);
         /// Used for clients where a host is connected to on a given port number
         network_connection(const host &h, nullable< port_number > p = null);
 

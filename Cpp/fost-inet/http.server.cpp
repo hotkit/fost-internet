@@ -28,22 +28,22 @@ fostlib::http::server::server( const host &h, uint16_t p )
 }
 
 std::auto_ptr< http::server::request > fostlib::http::server::operator () () {
-    std::auto_ptr< boost::asio::ip::tcp::socket > sock(
+    std::unique_ptr< boost::asio::ip::tcp::socket > sock(
         new boost::asio::ip::tcp::socket(m_service));
-    m_server.accept( *sock );
+    m_server.accept(*sock);
     return std::auto_ptr< http::server::request >(
-        new http::server::request(m_service, sock));
+        new http::server::request(m_service, std::move(sock)));
 }
 
 namespace {
     bool service(
         boost::asio::io_service &ioservice,
-        boost::function< bool (http::server::request &) > service_lambda,
+        boost::function<bool (http::server::request &)> service_lambda,
         boost::asio::ip::tcp::socket *sockp
     ) {
-        std::auto_ptr< boost::asio::ip::tcp::socket > sock(sockp);
         try {
-            http::server::request req(ioservice, sock);
+            http::server::request req(ioservice,
+                    std::unique_ptr<boost::asio::ip::tcp::socket>(sockp));
             try {
                 return service_lambda(req);
             } catch ( fostlib::exceptions::exception &e ) {
@@ -101,13 +101,13 @@ void fostlib::http::server::operator () (
         // Use a raw pointer here for minimum overhead -- if it all goes wrong
         // and a socket leaks, we don't care (for now)
         boost::asio::ip::tcp::socket *sock(
-            new boost::asio::ip::tcp::socket( m_service ));
+            new boost::asio::ip::tcp::socket(m_service));
         m_server.accept(*sock);
         if ( terminate_lambda() ) {
             delete sock;
             return;
         }
-        pool.f<bool>( boost::lambda::bind(service, boost::ref(m_service), service_lambda, sock) );
+        pool.f<bool>(boost::lambda::bind(service, boost::ref(m_service), service_lambda, sock));
     }
 }
 
@@ -121,8 +121,8 @@ fostlib::http::server::request::request() {
 }
 fostlib::http::server::request::request(
     boost::asio::io_service &service,
-    std::auto_ptr< boost::asio::ip::tcp::socket > connection
-) : m_cnx( new network_connection(service, connection) ), m_handler(raise_connection_error) {
+    std::unique_ptr< boost::asio::ip::tcp::socket > connection
+) : m_cnx( new network_connection(service, std::move(connection)) ), m_handler(raise_connection_error) {
 //     static boost::atomic<int> g_request_id{};
 //     const int request(++g_request_id);
 //     std::cout << request << " " << timestamp::now() << " About to start to parse response" << std::endl;
