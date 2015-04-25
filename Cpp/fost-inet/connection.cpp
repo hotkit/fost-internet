@@ -85,6 +85,10 @@ struct network_connection::state {
     ) : number(++g_network_counter), io_service(io_service),
             socket(std::move(s)) {
     }
+
+    void start_ssl() {
+        ssl.reset(new ssl_data(io_service, *socket));
+    }
 };
 
 
@@ -325,13 +329,12 @@ fostlib::network_connection::network_connection(
 //     } else
 //         connect(io_service, *m_socket, h, port);
 // }
-//
-// void fostlib::network_connection::start_ssl() {
-//     m_ssl_data = new ssl(io_service, *m_socket);
-// }
-//
-//
 fostlib::network_connection::~network_connection() {
+}
+
+
+void fostlib::network_connection::start_ssl() {
+    pimpl->start_ssl();
 }
 
 
