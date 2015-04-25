@@ -163,7 +163,7 @@ struct network_connection::state {
         if ( ssl ) {
             boost::asio::async_write(ssl->socket, b, handler);
         } else {
-            boost::asio::async_write(socket, b, handler);
+            boost::asio::async_write(*socket, b, handler);
         }
         signal.wait(lock); // Shouldn't need a time out on writes
         check_error(error, message);
@@ -184,7 +184,7 @@ struct network_connection::state {
         if ( ssl ) {
             boost::asio::async_read(ssl->socket, input_buffer, boost::asio::transfer_at_least(bytes), handler);
         } else {
-            boost::asio::async_read(socket, input_buffer, boost::asio::transfer_at_least(bytes), handler);
+            boost::asio::async_read(*socket, input_buffer, boost::asio::transfer_at_least(bytes), handler);
         }
         if ( signal.wait_for(lock, std::chrono::seconds(read_timeout)) ==
                 std::cv_status::no_timeout ) {
