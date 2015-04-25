@@ -233,13 +233,6 @@ namespace {
 //             }
 //             n = e;
 //         }
-//         static void connect_done(
-//             boost::asio::deadline_timer &timer, read_error &n,
-//             boost::system::error_code e
-//         ) {
-//             timer.cancel();
-//             n = std::make_pair(e, 0);
-//         }
 //         static void read_done(
 //             boost::asio::deadline_timer &timer, read_error &n,
 //             boost::system::error_code e, std::size_t s
