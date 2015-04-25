@@ -172,26 +172,47 @@ struct network_connection::state {
         return sent;
     }
 
-    std::vector<utf8> read(std::size_t bytes, nliteral message) {
+    template<typename F>
+    std::vector<utf8> read(F condition, nliteral message) {
+        return do_read([this, condition](std::function<void(const boost::system::error_code&, std::size_t)> handler) {
+            if ( ssl ) {
+                asio::async_read(ssl->socket, input_buffer, condition, handler);
+            } else {
+                asio::async_read(*socket, input_buffer, condition, handler);
+            }
+        }, message);
+    }
+    template<typename F>
+    std::vector<utf8> read_until(F condition, nliteral message) {
+        return do_read([this, condition](std::function<void(const boost::system::error_code&, std::size_t)> handler) {
+            if ( ssl ) {
+                asio::async_read_until(ssl->socket, input_buffer, condition, handler);
+            } else {
+                asio::async_read_until(*socket, input_buffer, condition, handler);
+            }
+        }, message);
+    }
+
+private:
+    template<typename R>
+    std::vector<utf8> do_read(R reader, nliteral message) {
         boost::system::error_code error{};
+        std::size_t bytes_read{};
         std::unique_lock<std::mutex> lock(mutex);
-        auto handler = [this, &error](
-            const boost::system::error_code &e, std::size_t
+        auto handler = [this, &error, &bytes_read](
+            const boost::system::error_code &e, std::size_t bytes
         ) {
             std::unique_lock<std::mutex> lock(mutex);
             error = e;
+            bytes_read += bytes;
             lock.unlock();
             signal.notify_one();
         };
-        if ( ssl ) {
-            boost::asio::async_read(ssl->socket, input_buffer, boost::asio::transfer_at_least(bytes), handler);
-        } else {
-            boost::asio::async_read(*socket, input_buffer, boost::asio::transfer_at_least(bytes), handler);
-        }
+        reader(handler);
         if ( signal.wait_for(lock, std::chrono::seconds(read_timeout)) ==
                 std::cv_status::no_timeout ) {
-            std::vector<utf8> data(bytes);
-            input_buffer.sgetn(reinterpret_cast<char*>(data.data()), bytes);
+            std::vector<utf8> data(bytes_read);
+            input_buffer.sgetn(reinterpret_cast<char*>(data.data()), bytes_read);
             return data;
         } else {
             socket->close();
@@ -395,21 +416,17 @@ network_connection &fostlib::network_connection::operator >> ( utf8_string &s ) 
     s += utf8_string(next);
     return *this;
 }
-// network_connection &fostlib::network_connection::operator >> ( std::string &s ) {
-//     std::cout << connection_id << " " << timestamp::now() << " Starting string read" << std::endl;
-//     std::size_t length(read_until(*m_socket, m_ssl_data, m_input_buffer, "\r\n"));
-//     std::cout << connection_id << " " << timestamp::now() << " Got the buffer" << std::endl;
-//     if ( length >= 2 ) {
-//         for ( std::size_t c = 0; c < length - 2; ++c )
-//             s += m_input_buffer.sbumpc();
-//         m_input_buffer.sbumpc(); m_input_buffer.sbumpc();
-//     } else {
-//         throw exceptions::unexpected_eof(
-//             "Could not find a \\r\\n sequence before network connection ended");
-//     }
-//     std::cout << connection_id << " " << timestamp::now() << " Got string " << s << std::endl;
-//     return *this;
-// }
+network_connection &fostlib::network_connection::operator >> (std::string &s) {
+    static const std::string crlf("\r\n");
+    std::vector<utf8> data{pimpl->read_until(crlf, "Reading string")};
+    if ( data.size() >= 2 ) {
+        s.assign(data.data(), data.data() + data.size() - 2);
+    } else {
+        throw exceptions::unexpected_eof(
+            "Could not find a \\r\\n sequence before network connection ended");
+    }
+    return *this;
+}
 // network_connection &fostlib::network_connection::operator >> (
 //         std::vector< utf8 > &v) {
 //     const std::size_t chunk = coerce<std::size_t>(c_large_read_chunk_size.value());
