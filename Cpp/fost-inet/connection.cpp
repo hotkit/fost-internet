@@ -372,14 +372,13 @@ network_connection &fostlib::network_connection::operator << ( const const_memor
     }
     return *this;
 }
-// network_connection &fostlib::network_connection::operator << ( const utf8_string &s ) {
-//     boost::asio::streambuf b;
-//     std::ostream os(&b);
-//     os << s.underlying();
-//     std::size_t length(send(*m_socket, m_ssl_data, b));
-//     b.consume(length);
-//     return *this;
-// }
+network_connection &fostlib::network_connection::operator << (const utf8_string &s) {
+    if ( not s.empty() ) {
+        pimpl->send(boost::asio::buffer(s.underlying().c_str(), s.underlying().length()),
+            "Sending UTF8 string");
+    }
+    return *this;
+}
 // network_connection &fostlib::network_connection::operator << ( const std::stringstream &ss ) {
 //     return this->operator << ( ss.str() );
 // }
