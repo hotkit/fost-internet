@@ -64,13 +64,12 @@ namespace {
 struct ssl_data {
     ssl_data(
         boost::asio::io_service &io_service, boost::asio::ip::tcp::socket &sock
-    ) : ctx(io_service, boost::asio::ssl::context::sslv23_client),
-    ssl_sock(sock, ctx) {
-        ssl_sock.handshake(boost::asio::ssl::stream_base::client);
+    ) : ctx(io_service, boost::asio::ssl::context::sslv23_client), socket(sock, ctx) {
+        socket.handshake(boost::asio::ssl::stream_base::client);
     }
 
     boost::asio::ssl::context ctx;
-    boost::asio::ssl::stream< boost::asio::ip::tcp::socket& > ssl_sock;
+    boost::asio::ssl::stream< boost::asio::ip::tcp::socket& > socket;
 };
 
 
@@ -130,35 +129,42 @@ struct network_connection::state {
             throw exceptions::connect_failure(connect_error, host, port);
         }
     }
+
+    void check_error(const boost::system::error_code &error, nliteral message) {
+        if ( error == boost::asio::error::eof ) {
+            throw exceptions::unexpected_eof(message);
+        } else if ( error ) {
+            throw exceptions::socket_error(error, message);
+        }
+    }
+
+    std::size_t send(boost::asio::streambuf &b, nliteral message) {
+        boost::system::error_code error{};
+        std::unique_lock<std::mutex> lock(mutex);
+        std::size_t sent{};
+        auto handler = [this, &error, &sent](
+            const boost::system::error_code &e, std::size_t bytes
+        ) {
+            std::unique_lock<std::mutex> lock(mutex);
+            error = e;
+            sent += bytes;
+            lock.unlock();
+            signal.notify_one();
+        };
+        if ( ssl ) {
+            boost::asio::async_write(ssl->socket, b, handler);
+        } else {
+            boost::asio::async_write(socket, b, handler);
+        }
+        signal.wait(lock); // Shouldn't need a time out on writes
+        check_error(error, message);
+        return sent;
+    }
 };
 
 
 namespace {
 
-//     void handle_error(
-//         nliteral func, nliteral msg,
-//         const boost::system::error_code &error
-//     ) {
-//         if ( error == boost::asio::error::eof )
-//             throw exceptions::unexpected_eof(string(msg));
-//         else if ( error )
-//             throw exceptions::socket_error(error, msg);
-//     }
-//
-//     std::size_t send(
-//         boost::asio::ip::tcp::socket &sock, ssl_data *ssl,
-//         boost::asio::streambuf &b
-//     ) {
-//         try {
-//             if ( ssl )
-//                 return boost::asio::write(ssl->ssl_sock, b);
-//             else
-//                 return boost::asio::write(sock, b);
-//         } catch ( boost::system::system_error &e ) {
-//             throw exceptions::socket_error(e.code());
-//         }
-//     }
-//
 //     struct timeout_wrapper {
 //         typedef nullable< boost::system::error_code > timeout_error;
 //         typedef nullable< std::pair< boost::system::error_code, std::size_t > >
@@ -327,7 +333,7 @@ fostlib::network_connection::network_connection(const host &h, nullable< port_nu
             for ( std::size_t p = 0; p < 4; ++p )
                 b.sputc(bytes[p]);
             b.sputc(0); // User ID
-            send(*(pimpl->socket), nullptr, b);
+            pimpl->send(b, "Trying to establish SOCKS connection");
             // Receive the response
             read(*(pimpl->socket), nullptr, m_input_buffer, boost::asio::transfer_at_least(8));
             if ( m_input_buffer.sbumpc() != 0x00 || m_input_buffer.sbumpc() != 0x5a ) {
