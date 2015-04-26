@@ -253,7 +253,7 @@ fostlib::network_connection::network_connection(const host &h, nullable< port_nu
             buffer[8] = 0x00; // User ID
             pimpl->send(asio::buffer(buffer), "Trying to establish SOCKS connection");
             // Receive the response
-            std::vector<utf8> data{pimpl->read(asio::transfer_at_least(8), "Trying to read SOCKS response")};
+            std::vector<utf8> data{pimpl->read(asio::transfer_exactly(8), "Trying to read SOCKS response")};
             if ( data[0] != 0x00 || data[1] != 0x5a ) {
                 throw exceptions::socket_error("SOCKS 4 error handling where the response values are not 0x00 0x5a");
             }
@@ -319,24 +319,18 @@ network_connection &fostlib::network_connection::operator >> (std::string &s) {
     }
     return *this;
 }
-// network_connection &fostlib::network_connection::operator >> (
-//         std::vector< utf8 > &v) {
-//     const std::size_t chunk = coerce<std::size_t>(c_large_read_chunk_size.value());
-//     while( v.size() - m_input_buffer.size()
-//             && read(*m_socket, m_ssl_data, m_input_buffer,
-//                 boost::asio::transfer_at_least(
-//                     std::min(v.size() - m_input_buffer.size(), chunk))) );
-//     if ( m_input_buffer.size() < v.size() ) {
-//         exceptions::unexpected_eof exception(
-//             "Could not read all of the requested bytes from the network connection");
-//         insert(exception.data(), "bytes read", coerce<int64_t>(m_input_buffer.size()));
-//         insert(exception.data(), "bytes expected", coerce<int64_t>(v.size()));
-//         throw exception;
-//     }
-//     for ( std::size_t p = 0; p <  v.size(); ++p )
-//         v[p] = m_input_buffer.sbumpc();
-//     return *this;
-// }
+network_connection &fostlib::network_connection::operator >> (std::vector< utf8 > &v) {
+    const std::size_t chunk = coerce<std::size_t>(c_large_read_chunk_size.value());
+    std::size_t read = 0;
+    while ( read < v.size() ) {
+        std::vector<utf8> block{pimpl->read(
+            asio::transfer_exactly(std::min(v.size() - read, chunk)),
+            "Reading a block of data")};
+        std::copy(block.begin(), block.end(), v.begin() + read);
+        read += block.size();
+    }
+    return *this;
+}
 
 
 /*
