@@ -24,8 +24,9 @@
 #include <boost/lexical_cast.hpp>
 
 #include <atomic>
-#include <mutex>
 #include <condition_variable>
+#include <mutex>
+#include <thread>
 
 
 using namespace fostlib;
@@ -58,6 +59,15 @@ namespace {
 
     /// ASIO IO service for client connections
     asio::io_service g_client_service;
+    /// Start a thread to run the service in
+    std::thread client_thread([]() {
+        asio::io_service::work work(g_client_service);
+        atexit([]() {
+            g_client_service.reset();
+            client_thread.join();
+        });
+        g_client_service.run();
+    });
 
 
 }
@@ -115,33 +125,44 @@ struct network_connection::state {
         }
         boost::system::error_code connect_error =
             asio::error::host_not_found;
+        json errors;
         while ( connect_error && endpoint != end ) {
             std::unique_lock<std::mutex> lock(mutex);
-            socket->async_connect(*endpoint++, [this, &connect_error](
-                const boost::system::error_code &e
-            ) {
-                std::unique_lock<std::mutex> lock(mutex);
-                connect_error = e;
-                lock.unlock();
-                signal.notify_one();
-            });
+            string ip(endpoint->endpoint().address().to_string());
+            insert(errors, ip, "started", timestamp::now());
+            socket->async_connect(*endpoint++,
+                [this, &connect_error, &errors, &ip](
+                    const boost::system::error_code &e
+                ) {
+                    std::unique_lock<std::mutex> lock(mutex);
+                    insert(errors, ip, "elapsed", time.elapsed());
+                    insert(errors, ip, "connected", timestamp::now());
+                    connect_error = e;
+                    lock.unlock();
+                    signal.notify_one();
+                });
             if ( signal.wait_for(lock, std::chrono::seconds(connect_timeout)) ==
                     std::cv_status::no_timeout ) {
                 if ( not connect_error ) {
+                    log::debug()
+                        ("connection", number)
+                        ("connected", errors);
                     return;
                 }
             } else {
-                log::error()
-                    ("error", "signal for connect timed out")
-                    ("now", timestamp::now())
-                    ("elapsed", time.elapsed())
-                    ("timeout", connect_timeout);
+                insert(errors, ip, "error", "signal for connect timed out");
+                insert(errors, ip, "failed", timestamp::now());
+                insert(errors, ip, "elapsed", time.elapsed());
+                insert(errors, ip, "timeout", connect_timeout);
                 connect_error = asio::error::timed_out;
                 socket->close();
             }
         }
         if ( connect_error ) {
-            throw exceptions::connect_failure(connect_error, host, port);
+            exceptions::connect_failure error(connect_error, host, port);
+            insert(error.data(), "connection", number);
+            insert(error.data(), "errors", errors);
+            throw error;
         }
     }
 
