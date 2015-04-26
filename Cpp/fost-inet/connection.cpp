@@ -174,6 +174,7 @@ struct network_connection::state {
 
     template<typename F>
     std::vector<utf8> read(F condition, nliteral message) {
+        // TODO: Try to replace explicit std::function with auto in C++14
         return do_read([this, condition](std::function<void(const boost::system::error_code&, std::size_t)> handler) {
             if ( ssl ) {
                 asio::async_read(ssl->socket, input_buffer, condition, handler);
@@ -184,6 +185,7 @@ struct network_connection::state {
     }
     template<typename F>
     std::vector<utf8> read_until(F condition, nliteral message) {
+        // TODO: Try to replace explicit std::function with auto in C++14
         return do_read([this, condition](std::function<void(const boost::system::error_code&, std::size_t)> handler) {
             if ( ssl ) {
                 asio::async_read_until(ssl->socket, input_buffer, condition, handler);
