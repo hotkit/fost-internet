@@ -1,5 +1,5 @@
 /*
-    Copyright 2009-2011, Felspar Co Ltd. http://support.felspar.com/
+    Copyright 2009-2015, Felspar Co Ltd. http://support.felspar.com/
     Distributed under the Boost Software License, Version 1.0.
     See accompanying file LICENSE_1_0.txt or copy at
         http://www.boost.org/LICENSE_1_0.txt
@@ -19,7 +19,7 @@ FSL_TEST_SUITE( http_server );
 FSL_TEST_FUNCTION( mock_no_handler ) {
     http::server::request req(
         "GET", url::filepath_string("/"),
-        std::auto_ptr< binary_body >( new binary_body ));
+        std::unique_ptr< binary_body >( new binary_body ));
     empty_mime response;
     FSL_CHECK_EXCEPTION(req( response ), exceptions::null&);
 }
@@ -31,7 +31,7 @@ namespace {
 FSL_TEST_FUNCTION( mock_with_handler ) {
     bool called = false;
     http::server::request req("GET", "/",
-        std::auto_ptr< binary_body >( new binary_body ),
+        std::unique_ptr< binary_body >( new binary_body ),
         boost::bind(handler, boost::ref(called), _1, _2));
     empty_mime response;
     req(response);

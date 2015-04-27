@@ -202,7 +202,7 @@ namespace {
             } catch ( ... ) {
                 absorb_exception();
             }
-            std::auto_ptr< text_body > message( size_t i ) {
+            std::unique_ptr< text_body > message( size_t i ) {
                 try {
                     send_and_check_OK(m_cnx, "retr", i);
                     mime::mime_headers h = read_headers(m_cnx);
@@ -210,9 +210,9 @@ namespace {
                     try {
                         content = read_body(m_cnx);
                     } catch ( fostlib::exceptions::unicode_encoding & ) {
-                        return std::auto_ptr< text_body >();
+                        return std::unique_ptr< text_body >();
                     }
-                    return std::auto_ptr<text_body>(
+                    return std::unique_ptr<text_body>(
                         new text_body( coerce< string >( content ), h, "text/plain" )
                     );
                 } catch ( fostlib::exceptions::exception &e ) {
@@ -239,7 +239,7 @@ void fostlib::pop3::iterate_mailbox(
 
     // Loop from the end so we always process the latest bounce messages first
     for ( std::size_t i = messages; i; --i ) {
-        std::auto_ptr< text_body > message = mailbox->message(i);
+        std::unique_ptr< text_body > message = mailbox->message(i);
         if (message.get() && destroy_message(*message))
             mailbox->remove(i);
         if ( i % 20 == 0 ) {
