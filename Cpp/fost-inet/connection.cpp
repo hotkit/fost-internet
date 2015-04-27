@@ -151,6 +151,10 @@ struct network_connection::state {
                         ("connection", number)
                         ("connected", errors);
                     return;
+                } else {
+                    insert(errors, ip, "error", string(boost::lexical_cast<std::string>(connect_error).c_str()));
+                    insert(errors, ip, "failed", timestamp::now());
+                    insert(errors, ip, "elapsed", time.elapsed());
                 }
             } else {
                 insert(errors, ip, "error", "signal for connect timed out");
