@@ -348,6 +348,7 @@ network_connection &fostlib::network_connection::operator >> (std::string &s) {
     std::vector<utf8> data{pimpl->read_until(crlf, "Reading string")};
     if ( data.size() >= 2 ) {
         s.assign(data.data(), data.data() + data.size() - 2);
+        std::cout << s << std::endl;
     } else {
         throw exceptions::unexpected_eof(
             "Could not find a \\r\\n sequence before network connection ended");
