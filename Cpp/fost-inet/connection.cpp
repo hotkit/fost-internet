@@ -15,6 +15,7 @@
 #include "fost-inet.hpp"
 #include <fost/connection.hpp>
 
+#include <fost/atexit>
 #include <fost/insert>
 #include <fost/datetime>
 #include <fost/log>
@@ -60,12 +61,14 @@ namespace {
     /// ASIO IO service for client connections
     asio::io_service g_client_service;
     /// Start a thread to run the service in
-    std::thread client_thread([]() {
-        asio::io_service::work work(g_client_service);
-        atexit([]() {
-            g_client_service.reset();
-            client_thread.join();
-        });
+    std::thread g_client_thread([]() {
+        std::unique_ptr<asio::io_service::work> work{
+            new asio::io_service::work(g_client_service)};
+        fostlib::atexit(boost::function<void(void)>([&work]() {
+            work.reset();
+            g_client_service.stop();
+            g_client_thread.join();
+        }));
         g_client_service.run();
     });
 
