@@ -21,10 +21,8 @@ using namespace fostlib;
 */
 
 
-fostlib::http::server::server( const host &h, uint16_t p )
-: binding( h ), port( p ), m_server(
-    m_service, boost::asio::ip::tcp::endpoint( binding().address(), port() )
-) {
+fostlib::http::server::server(const host &h, uint16_t p)
+: binding( h ), port( p ), listener(binding().address(), port()) {
 }
 
 std::unique_ptr<http::server::request> fostlib::http::server::operator () () {

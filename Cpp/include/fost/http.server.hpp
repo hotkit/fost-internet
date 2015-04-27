@@ -11,8 +11,9 @@
 #pragma once
 
 
-#include <fost/url.hpp>
+#include <fost/server.hpp>
 #include <fost/http.hpp>
+#include <fost/url.hpp>
 
 
 namespace fostlib {
@@ -102,8 +103,7 @@ namespace fostlib {
             static nliteral status_text( int code );
 
         private:
-            boost::asio::io_service m_service;
-            boost::asio::ip::tcp::acceptor m_server;
+            fostlib::server listener;
         };
 
 
