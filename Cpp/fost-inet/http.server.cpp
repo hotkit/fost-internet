@@ -63,10 +63,6 @@ namespace {
             "This is a mock server request. It cannot send a response to any client");
     }
 
-    bool return_false() {
-        return false;
-    }
-
 }
 
 
