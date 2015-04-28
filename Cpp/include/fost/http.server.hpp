@@ -28,7 +28,7 @@ namespace fostlib {
             /// The request from a user agent
             class FOST_INET_DECLSPEC request : boost::noncopyable {
                 friend class fostlib::http::server;
-                boost::scoped_ptr< network_connection > m_cnx;
+                std::unique_ptr<network_connection> m_cnx;
                 boost::function<void (mime&, const ascii_string&)> m_handler;
                 string m_method;
                 url::filepath_string m_pathspec;
@@ -39,7 +39,7 @@ namespace fostlib {
                     /// Create an empty request
                     request();
                     /// Create a request from data on the provided socket
-                    request(network_connection &&connection);
+                    request(network_connection);
                     /// This constructor is useful for mocking the request that doesn't get responded to
                     request(
                         const string &method, const url::filepath_string &filespec,
@@ -79,23 +79,17 @@ namespace fostlib {
                         const ascii_string &status_text);
             };
 
+            /// Create a server bound to a host
+            server(const host &h, std::function<void(request&)> fn)
+            : server(h, 80, fn) {
+            }
             /// Create a server bound to a host and port
-            explicit server( const host &h, uint16_t port = 80 );
+            server(const host &, uint16_t, std::function<void(request&)>);
 
             /// The host the server is bound to
             accessors< const host > binding;
             /// The port the server is bound to
             accessors< const uint16_t > port;
-
-            /// Return the next request on the underlying socket
-            std::unique_ptr<request> operator() ();
-            /// Run the provided lambda to service requests forever
-            void operator () (
-                boost::function< bool (request &) > service_lambda);
-            /// Run the provided lambda to service requests until the terminator return true
-            void operator () (
-                boost::function< bool (request &) > service_lambda,
-                boost::function< bool (void) > terminator);
 
             /// Return the status text associated with a status code
             static nliteral status_text( int code );

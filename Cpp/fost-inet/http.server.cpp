@@ -21,38 +21,27 @@ using namespace fostlib;
 */
 
 
-fostlib::http::server::server(const host &h, uint16_t p)
-: binding(h), port(p), listener(binding(), port()) {
-}
-
-
-std::unique_ptr<http::server::request> fostlib::http::server::operator () () {
-    return std::unique_ptr<http::server::request>(
-        new http::server::request(listener()));
+fostlib::http::server::server(const host &h, uint16_t p,
+    std::function<void(request&)> service_lambda)
+: binding(h), port(p), listener(binding(), port(),
+        [service_lambda](network_connection cnx) {
+            try {
+                http::server::request req(std::move(cnx));
+                try {
+                    service_lambda(req);
+                } catch ( fostlib::exceptions::exception &e ) {
+                    text_body error(
+                        fostlib::coerce<fostlib::string>(e));
+                    req( error, 500 );
+                }
+            } catch ( fostlib::exceptions::exception & ) {
+                // A 400 response has already been sent by the request handler
+            }
+        }) {
 }
 
 
 namespace {
-    bool service(
-        network_connection cnx,
-        boost::function<bool (http::server::request &)> service_lambda
-    ) {
-        try {
-            http::server::request req(std::move(cnx));
-            try {
-                return service_lambda(req);
-            } catch ( fostlib::exceptions::exception &e ) {
-                text_body error(
-                    fostlib::coerce<fostlib::string>(e));
-                req( error, 500 );
-                return true;
-            }
-        } catch ( fostlib::exceptions::exception & ) {
-            // A 400 response has already been sent by the request handler
-            return true;
-        }
-    }
-
     void respond_on_socket(
         fostlib::network_connection *cnx,
         mime &response, const ascii_string &status
@@ -80,29 +69,6 @@ namespace {
 
 }
 
-void fostlib::http::server::operator () (
-    boost::function< bool (http::server::request &) > service_lambda
-) {
-    (*this)(service_lambda, return_false);
-}
-
-void fostlib::http::server::operator () (
-    boost::function< bool (http::server::request &) > service_lambda,
-    boost::function< bool (void) > terminate_lambda
-) {
-    // Create a worker pool to service the requests
-    workerpool pool;
-    while ( true ) {
-        network_connection cnx(listener());
-        if ( terminate_lambda() ) {
-            return;
-        }
-        pool.f<bool>([]() {
-            return service_lambda(cnx);
-        });
-    }
-}
-
 
 /*
     fostlib::http::server::request
@@ -112,9 +78,8 @@ void fostlib::http::server::operator () (
 fostlib::http::server::request::request() {
 }
 fostlib::http::server::request::request(
-    boost::asio::io_service &service,
-    std::unique_ptr< boost::asio::ip::tcp::socket > connection
-) : m_cnx( new network_connection(service, std::move(connection)) ), m_handler(raise_connection_error) {
+    network_connection connection
+) : m_cnx(new network_connection(std::move(connection))), m_handler(raise_connection_error) {
 //     static boost::atomic<int> g_request_id{};
 //     const int request(++g_request_id);
 //     std::cout << request << " " << timestamp::now() << " About to start to parse response" << std::endl;
