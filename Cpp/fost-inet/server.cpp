@@ -9,12 +9,32 @@
 #include "fost-inet.hpp"
 #include <fost/server.hpp>
 
+#include <thread>
+
 
 using namespace fostlib;
+namespace asio = boost::asio;
 
 
 struct network_connection::server::state {
-    boost::asio::io_service service;
-    boost::asio::ip::tcp::acceptor server;
+    boost::asio::io_service io_service;
+    boost::asio::ip::tcp::acceptor socket;
+
+    state(const host &h, uint16_t p)
+    : socket(io_service, asio::ip::tcp::endpoint(h.address(), p)) {
+    }
+
+    ~state() {
+        io_service.stop();
+    }
 };
+
+
+network_connection::server::server(const host &h, uint16_t p)
+: pimpl(new state(h, p)) {
+}
+
+
+network_connection::server::~server() {
+}
 

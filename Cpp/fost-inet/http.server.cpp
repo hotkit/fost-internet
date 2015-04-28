@@ -22,26 +22,23 @@ using namespace fostlib;
 
 
 fostlib::http::server::server(const host &h, uint16_t p)
-: binding( h ), port( p ), listener(binding().address(), port()) {
+: binding(h), port(p), listener(binding(), port()) {
 }
 
+
 std::unique_ptr<http::server::request> fostlib::http::server::operator () () {
-    std::unique_ptr<boost::asio::ip::tcp::socket> sock(
-        new boost::asio::ip::tcp::socket(m_service));
-    m_server.accept(*sock);
     return std::unique_ptr<http::server::request>(
-        new http::server::request(m_service, std::move(sock)));
+        new http::server::request(listener()));
 }
+
 
 namespace {
     bool service(
-        boost::asio::io_service &ioservice,
-        boost::function<bool (http::server::request &)> service_lambda,
-        boost::asio::ip::tcp::socket *sockp
+        network_connection cnx,
+        boost::function<bool (http::server::request &)> service_lambda
     ) {
         try {
-            http::server::request req(ioservice,
-                    std::unique_ptr<boost::asio::ip::tcp::socket>(sockp));
+            http::server::request req(std::move(cnx));
             try {
                 return service_lambda(req);
             } catch ( fostlib::exceptions::exception &e ) {
@@ -96,16 +93,13 @@ void fostlib::http::server::operator () (
     // Create a worker pool to service the requests
     workerpool pool;
     while ( true ) {
-        // Use a raw pointer here for minimum overhead -- if it all goes wrong
-        // and a socket leaks, we don't care (for now)
-        boost::asio::ip::tcp::socket *sock(
-            new boost::asio::ip::tcp::socket(m_service));
-        m_server.accept(*sock);
+        network_connection cnx(listener());
         if ( terminate_lambda() ) {
-            delete sock;
             return;
         }
-        pool.f<bool>(boost::lambda::bind(service, boost::ref(m_service), service_lambda, sock));
+        pool.f<bool>([]() {
+            return service_lambda(cnx);
+        });
     }
 }
 
