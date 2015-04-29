@@ -107,8 +107,16 @@ struct network_connection::server::state {
         auto handler = [this, socket, &listener](const boost::system::error_code& error) {
             std::cout << "Got a connect " << error << std::endl;
             if ( !error ) {
-                callback(network_connection(io_service,
-                    std::unique_ptr<asio::ip::tcp::socket>(socket)));
+                try {
+                    callback(network_connection(io_service,
+                        std::unique_ptr<asio::ip::tcp::socket>(socket)));
+                } catch ( exceptions::exception &e ) {
+                    std::cout << "Callback handler caught " << e << std::endl;
+                } catch ( std::exception &e ) {
+                    std::cout << "Callback handler caught " << e.what() << std::endl;
+                } catch ( ... ) {
+                    std::cout << "Caught an unkown exception" << std::endl;
+                }
             }
             post_handler(listener);
         };
