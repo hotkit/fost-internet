@@ -225,10 +225,12 @@ boost::shared_ptr< const binary_body > fostlib::http::user_agent::response::body
                 } else {
                     // Unbounded read to memory (eeek)
                     // TODO: Stop doing this!
-                    std::vector<unsigned char> body_data, buffer(1024);
-                    while ( buffer.size() ) {
-                        *m_cnx >> buffer;
-                        body_data.insert(body_data.end(), buffer.begin(), buffer.end());
+                    boost::asio::streambuf body_buffer;
+                    *m_cnx >> body_buffer;
+                    std::vector< unsigned char > body_data;
+                    body_data.reserve(body_buffer.size());
+                    while ( body_buffer.size() ) {
+                        body_data.push_back( body_buffer.sbumpc() );
                     }
                     m_body = boost::shared_ptr< binary_body >(
                         new binary_body(body_data, m_headers));

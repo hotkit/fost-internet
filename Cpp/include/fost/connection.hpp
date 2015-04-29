@@ -55,9 +55,10 @@ namespace fostlib {
         network_connection &operator >> (std::string &s);
         /// Read up until the next \r\n which is discarded and decode the line as UTF-8
         network_connection &operator >> (utf8_string &s);
-        /// Read into the vector. Reads a maximum of the vector size number of bytes.
-        /// If less bytes are read then the vector is resized down to the read amount
+        /// Read into the vector. Reads exactly the vector size number of bytes.
         network_connection &operator >> (std::vector<unsigned char> &v);
+        /// Unbounded read (i.e. until EOF). Don't do this
+        void operator >> (boost::asio::streambuf &);
     };
 
 

@@ -370,6 +370,17 @@ network_connection &fostlib::network_connection::operator >> (std::vector< utf8 
 //     }
 //     return *this;
 }
+void network_connection::operator >> (boost::asio::streambuf &b) {
+    throw exceptions::not_implemented("Unbounded TCP read into a buffer");
+//     boost::system::error_code error;
+//     pimpl->read(boost::asio::transfer_all(), error);
+//     while ( m_input_buffer.size() ) {
+//         b.sputc(m_input_buffer.sbumpc());
+//     }
+//     if ( error != boost::asio::error::eof ) {
+//         throw exceptions::read_error(error);
+//     }
+}
 
 
 /*
