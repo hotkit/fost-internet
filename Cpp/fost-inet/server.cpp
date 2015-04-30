@@ -59,7 +59,7 @@ struct network_connection::server::state {
         io_worker = std::move(std::thread([this, &mutex, &signal]() {
             std::unique_lock<std::mutex> lock(mutex);
             lock.unlock();
-            std::cout << "Signalling that io_service is running" << std::endl;
+            std::cout << "Signalling that io_service is about to run" << std::endl;
             signal.notify_one();
             bool again = false;
             do {
@@ -74,7 +74,7 @@ struct network_connection::server::state {
                     }
                 } catch ( std::exception &e ) {
                     again = true;
-                    std::cout << "Caught " << e.what() << std::endl;
+                    std::cout << "**** Caught " << e.what() << std::endl;
                 } catch ( ... ) {
                     again = true;
                     std::cout << "Unknown exception caught" << std::endl;

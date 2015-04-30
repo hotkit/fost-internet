@@ -39,10 +39,10 @@ namespace {
 
     const setting< int64_t > c_connect_timeout(
         "fost-internet/Cpp/fost-inet/connection.cpp",
-        "Network settings", "Connect time out", 10, true);
+        "Network settings", "Connect time out", 5, true);
     const setting< int64_t > c_read_timeout(
         "fost-internet/Cpp/fost-inet/connection.cpp",
-        "Network settings", "Read time out", 30, true);
+        "Network settings", "Read time out", 5, true);
     const setting< int64_t > c_large_read_chunk_size(
         "fost-internet/Cpp/fost-inet/connection.cpp",
         "Network settings", "Large read chunk size", 1024, true);
@@ -199,6 +199,7 @@ struct network_connection::state {
             const boost::system::error_code &e, std::size_t bytes
         ) {
             std::unique_lock<std::mutex> lock(mutex);
+            std::cout << number << " Sent " << bytes << " bytes " << e << std::endl;
             error = e;
             sent += bytes;
             lock.unlock();
@@ -216,6 +217,7 @@ struct network_connection::state {
 
     template<typename F>
     std::vector<utf8> read(F condition, nliteral message) {
+        std::cout << number << " *** Requesting read" << std::endl;
         // TODO: Try to replace explicit std::function with auto in C++14
         return do_read([this, condition](std::function<void(const boost::system::error_code&, std::size_t)> handler) {
             if ( ssl ) {
@@ -227,6 +229,7 @@ struct network_connection::state {
     }
     template<typename F>
     std::vector<utf8> read_until(F condition, nliteral message) {
+        std::cout << number << " Requesting read_until" << std::endl;
         // TODO: Try to replace explicit std::function with auto in C++14
         return do_read([this, condition](std::function<void(const boost::system::error_code&, std::size_t)> handler) {
             if ( ssl ) {
@@ -247,6 +250,7 @@ private:
             const boost::system::error_code &e, std::size_t bytes
         ) {
             std::unique_lock<std::mutex> lock(mutex);
+            std::cout << number << " Got " << bytes << " bytes with error " << e << std::endl;
             error = e;
             bytes_read += bytes;
             lock.unlock();
@@ -259,6 +263,7 @@ private:
             input_buffer.sgetn(reinterpret_cast<char*>(data.data()), bytes_read);
             return data;
         } else {
+            std::cout << number << " Time out" << std::endl;
             socket->close();
             throw exceptions::socket_error(asio::error::timed_out, message);
         }
