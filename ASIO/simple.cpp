@@ -1,6 +1,8 @@
 #include <iostream>
 #include <thread>
 
+#include <boost/asio.hpp>
+
 
 int main() {
     std::cout << "Simple test" << std::endl;
