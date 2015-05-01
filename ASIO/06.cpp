@@ -64,6 +64,7 @@ int main() {
         if ( read_done.wait_for(read_lock, std::chrono::seconds(1)) == std::cv_status::timeout ) {
             log_thread() << "Server read timed out -- cancelling socket jobs" << std::endl;
             server_cnx->socket.cancel();
+            server_cnx->socket.close();
         } else {
             log_thread() << "Server data read" << std::endl;
         }
@@ -98,7 +99,7 @@ int main() {
     });
     if ( signal.wait_for(lock, std::chrono::seconds(10)) == std::cv_status::timeout ) {
         log_thread() << "IO thread timed out servicing requests -- stopping it"
-            "\n^^^ This should not have happen because the server service "
+            "\n^^^ This should not happen because the server service "
                 "should have run out of work" << std::endl;
         server_service.stop();
         log_thread() << "Waiting for things to close...." << std::endl;
