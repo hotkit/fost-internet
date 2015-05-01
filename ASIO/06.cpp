@@ -18,6 +18,18 @@ namespace {
 }
 
 
+struct connection {
+    boost::asio::ip::tcp::socket socket;
+    boost::asio::streambuf buffer;
+    connection(boost::asio::io_service &service)
+    : socket(service) {
+    }
+    ~connection() {
+        log_thread() << "~connection run" << std::endl;
+    }
+};
+
+
 int main() {
     std::mutex mutex;
     std::unique_lock<std::mutex> lock(mutex);
@@ -25,8 +37,6 @@ int main() {
 
     boost::asio::io_service server_service;
     boost::asio::ip::tcp::acceptor listener(server_service);
-    boost::asio::ip::tcp::socket server_socket(server_service);
-    boost::asio::streambuf server_buffer;
     std::mutex read_mutex;
     std::unique_lock<std::mutex> read_lock(read_mutex);
     std::condition_variable read_done;
@@ -37,21 +47,23 @@ int main() {
         listener.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 4567));
         listener.listen();
 
-        listener.async_accept(server_socket, [&](const boost::system::error_code& error) {
-            log_thread() << "Server got a connection " << error << std::endl;
-            boost::asio::async_read_until(server_socket, server_buffer, '\n',
-                [&](const boost::system::error_code& error, std::size_t bytes) {
-                    std::unique_lock<std::mutex> lock(read_mutex);
-                    log_thread() << "Got " << bytes << ", " << error << std::endl;
-                    lock.unlock();
-                    read_done.notify_one();
-                });
-        });
+        std::shared_ptr<connection> server_cnx(new connection(server_service));
+        listener.async_accept(server_cnx->socket,
+            [&, server_cnx](const boost::system::error_code& error) {
+                log_thread() << "Server got a connection " << error << std::endl;
+                boost::asio::async_read_until(server_cnx->socket, server_cnx->buffer, '\n',
+                    [&, server_cnx](const boost::system::error_code& error, std::size_t bytes) {
+                        log_thread() << "Got " << bytes << ", " << error << std::endl;
+                        std::unique_lock<std::mutex> lock(read_mutex);
+                        lock.unlock();
+                        read_done.notify_one();
+                    });
+            });
         lock.unlock();
         signal.notify_one();
         if ( read_done.wait_for(read_lock, std::chrono::seconds(1)) == std::cv_status::timeout ) {
-            log_thread() << "Server read timed out" << std::endl;
-            server_socket.cancel();
+            log_thread() << "Server read timed out -- cancelling socket jobs" << std::endl;
+            server_cnx->socket.cancel();
         } else {
             log_thread() << "Server data read" << std::endl;
         }
@@ -89,6 +101,9 @@ int main() {
             "\n^^^ This should not have happen because the server service "
                 "should have run out of work" << std::endl;
         server_service.stop();
+        log_thread() << "Waiting for things to close...." << std::endl;
+        sleep(2);
+        log_thread() << "Wait over, exiting" << std::endl;
         exit(1);
     }
 
