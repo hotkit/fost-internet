@@ -1,4 +1,5 @@
 #include <condition_variable>
+#include <iomanip>
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -7,8 +8,12 @@
 
 
 namespace {
+    auto started(std::chrono::steady_clock::now());
     std::ostream &log_thread() {
-        return std::cout << std::this_thread::get_id() << " ";
+        return std::cout
+            << std::setprecision(6)
+                <<(10. + (std::chrono::steady_clock::now() - started).count()  / 1e9) << " "
+            << std::this_thread::get_id() << " ";
     }
 }
 
@@ -42,9 +47,9 @@ int main() {
                     read_done.notify_one();
                 });
         });
+        lock.unlock();
         signal.notify_one();
-        log_thread() << "Server set up" << std::endl;
-        if ( read_done.wait_for(read_lock, std::chrono::seconds(1)) == std::cv_status::timeout ) {
+        if ( read_done.wait_for(read_lock, std::chrono::seconds(2)) == std::cv_status::timeout ) {
             log_thread() << "Server read timed out" << std::endl;
             server_socket.close();
         } else {
@@ -52,18 +57,21 @@ int main() {
         }
     });
     signal.wait(lock);
+    log_thread() << "Server set up" << std::endl;
 
     boost::asio::io_service client_service;
     boost::asio::ip::tcp::socket client_socket(client_service);
     std::thread client([&]() {
+        std::unique_lock<std::mutex> lock(mutex);
         boost::asio::ip::tcp::endpoint address(boost::asio::ip::address_v4(0ul), 4567);
         client_socket.async_connect(address, [](const boost::system::error_code& error) {
             log_thread() << "Connected " << error << std::endl;
         });
+        lock.unlock();
         signal.notify_one();
-        log_thread() << "Client set up" << std::endl;
     });
     signal.wait(lock);
+    log_thread() << "Client set up" << std::endl;
 
     std::thread server_io([&]() {
         log_thread() << "About to service IO requests" << std::endl;
@@ -71,7 +79,7 @@ int main() {
         log_thread() << "Service jobs all run" << std::endl;
         signal.notify_one();
     });
-    if ( signal.wait_for(lock, std::chrono::seconds(3)) == std::cv_status::timeout ) {
+    if ( signal.wait_for(lock, std::chrono::seconds(10)) == std::cv_status::timeout ) {
         log_thread() << "IO thread timed out servicing requests -- stopping it"
             "\n^^^ This should not have happen because the server should have timed out" << std::endl;
         server_service.stop();
