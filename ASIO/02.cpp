@@ -18,7 +18,7 @@ int main() {
         boost::asio::ip::tcp::acceptor listener(service);
         listener.open(boost::asio::ip::tcp::v4());
         listener.set_option(boost::asio::socket_base::enable_connection_aborted(true));
-        listener.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 4567));
+        listener.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 45672));
         listener.listen();
         boost::asio::ip::tcp::socket socket(service);
         listener.async_accept(socket, [](const boost::system::error_code& error) {
@@ -30,7 +30,7 @@ int main() {
     signal.wait(lock);
 
     std::thread client([&]() {
-        boost::asio::ip::tcp::endpoint address(boost::asio::ip::address_v4(0ul), 4567);
+        boost::asio::ip::tcp::endpoint address(boost::asio::ip::address_v4(0ul), 45672);
         boost::asio::ip::tcp::socket socket(service);
         socket.async_connect(address, [](const boost::system::error_code& error) {
             std::cout << "Connected " << error << std::endl;

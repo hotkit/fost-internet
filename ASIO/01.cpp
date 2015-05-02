@@ -17,7 +17,7 @@ int main() {
         boost::asio::ip::tcp::acceptor listener(service);
         listener.open(boost::asio::ip::tcp::v4());
         listener.set_option(boost::asio::socket_base::enable_connection_aborted(true));
-        listener.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 4567));
+        listener.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 45671));
         listener.listen();
         signal.notify_one();
         std::cout << "Server set up" << std::endl;

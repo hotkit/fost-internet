@@ -27,7 +27,7 @@ int main() {
         std::unique_lock<std::mutex> lock(mutex);
         listener.open(boost::asio::ip::tcp::v4());
         listener.set_option(boost::asio::socket_base::enable_connection_aborted(true));
-        listener.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 4567));
+        listener.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 45674));
         listener.listen();
         listener.async_accept(server_socket, [&](const boost::system::error_code& error) {
             log_thread() << "Got a connection " << error << std::endl;
@@ -43,7 +43,7 @@ int main() {
 
     boost::asio::ip::tcp::socket client_socket(service);
     std::thread client([&]() {
-        boost::asio::ip::tcp::endpoint address(boost::asio::ip::address_v4(0ul), 4567);
+        boost::asio::ip::tcp::endpoint address(boost::asio::ip::address_v4(0ul), 45674);
         client_socket.async_connect(address, [](const boost::system::error_code& error) {
             log_thread() << "Connected " << error << std::endl;
         });
