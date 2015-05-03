@@ -38,7 +38,6 @@ int main() {
     boost::asio::io_service server_service;
     boost::asio::ip::tcp::acceptor listener(server_service);
     std::mutex read_mutex;
-    std::unique_lock<std::mutex> read_lock(read_mutex);
     std::condition_variable read_done;
     std::thread server([&]() {
         std::unique_lock<std::mutex> lock(mutex);
@@ -47,6 +46,7 @@ int main() {
         listener.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 45676));
         listener.listen();
 
+        std::unique_lock<std::mutex> read_lock(read_mutex);
         std::shared_ptr<connection> server_cnx(new connection(server_service));
         listener.async_accept(server_cnx->socket,
             [&, server_cnx](const boost::system::error_code& error) mutable {
