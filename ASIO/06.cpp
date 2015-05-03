@@ -91,7 +91,8 @@ int main() {
     std::thread server_io([&]() {
         log_thread() << "About to service server IO requests" << std::endl;
         try {
-            server_service.run();
+            const std::size_t jobs = server_service.run();
+            log_thread() << "Server service has run " << jobs << " jobs" << std::endl;
         } catch ( ... ) {
             log_thread() << "Exception caught" << std::endl;
         }
@@ -105,7 +106,8 @@ int main() {
         server_service.stop();
         log_thread() << "Waiting for things to close...." << std::endl;
         sleep(2);
-        log_thread() << "Wait over, exiting" << std::endl;
+        log_thread() << "Wait over, exiting. server_service is "
+            << (server_service.stopped() ? "stopped" : "running") << std::endl;
         exit(1);
     }
 
