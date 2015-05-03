@@ -43,6 +43,9 @@ namespace {
     const setting< int64_t > c_read_timeout(
         "fost-internet/Cpp/fost-inet/connection.cpp",
         "Network settings", "Read time out", 5, true);
+    const setting< int64_t > c_write_timeout(
+        "fost-internet/Cpp/fost-inet/connection.cpp",
+        "Network settings", "Write time out", 5, true);
     const setting< int64_t > c_large_read_chunk_size(
         "fost-internet/Cpp/fost-inet/connection.cpp",
         "Network settings", "Large read chunk size", 1024, true);
@@ -106,9 +109,9 @@ struct network_connection::state {
 
     asio::streambuf input_buffer;
 
-    std::mutex mutex;
-    std::condition_variable signal;
-    int connect_timeout, read_timeout;
+    std::timed_mutex mutex;
+    std::condition_variable_any signal;
+    int connect_timeout, read_timeout, write_timeout;
 
     state(
         asio::io_service &io_service,
@@ -116,7 +119,8 @@ struct network_connection::state {
     ) : number(++g_network_counter), io_service(io_service),
             socket(std::move(s)),
             connect_timeout(coerce<int>(c_connect_timeout.value())),
-            read_timeout(coerce<int>(c_read_timeout.value())) {
+            read_timeout(coerce<int>(c_read_timeout.value())),
+            write_timeout(coerce<int>(c_write_timeout.value())) {
     }
 
     void start_ssl() {
@@ -139,14 +143,20 @@ struct network_connection::state {
             asio::error::host_not_found;
         json errors;
         while ( connect_error && endpoint != end ) {
-            std::unique_lock<std::mutex> lock(mutex);
+            std::unique_lock<std::timed_mutex> lock(mutex, std::chrono::seconds(connect_timeout));
+            if ( !lock.owns_lock() ) {
+                throw exceptions::not_implemented("Lock timeout starting connect");
+            }
             string ip(endpoint->endpoint().address().to_string());
             insert(errors, ip, "started", timestamp::now());
             socket->async_connect(*endpoint++,
                 [this, &connect_error, &errors, &ip](
                     const boost::system::error_code &e
                 ) {
-                    std::unique_lock<std::mutex> lock(mutex);
+                    std::unique_lock<std::timed_mutex> lock(mutex, std::chrono::seconds(connect_timeout));
+                    if ( !lock.owns_lock() ) {
+                        throw exceptions::not_implemented("Lock timeout entering async_connect handler");
+                    }
                     connect_error = e;
                     lock.unlock();
                     signal.notify_one();
@@ -193,12 +203,19 @@ struct network_connection::state {
     template<typename B>
     std::size_t send(const B &b, nliteral message) {
         boost::system::error_code error{};
-        std::unique_lock<std::mutex> lock(mutex);
+        std::unique_lock<std::timed_mutex> lock(mutex, std::chrono::seconds(write_timeout));
+        if ( !lock.owns_lock() ) {
+            throw exceptions::not_implemented("Lock timeout initiating send");
+        }
+
         std::size_t sent{};
         auto handler = [this, &error, &sent](
             const boost::system::error_code &e, std::size_t bytes
         ) {
-            std::unique_lock<std::mutex> lock(mutex);
+            std::unique_lock<std::timed_mutex> lock(mutex, std::chrono::seconds(write_timeout));
+            if ( !lock.owns_lock() ) {
+                throw exceptions::not_implemented("Lock timeout starting async_write handler");
+            }
             std::cout << number << " Sent " << bytes << " bytes " << e << std::endl;
             error = e;
             sent += bytes;
@@ -245,11 +262,17 @@ private:
     std::vector<utf8> do_read(R reader, nliteral message) {
         boost::system::error_code error{};
         std::size_t bytes_read{};
-        std::unique_lock<std::mutex> lock(mutex);
+        std::unique_lock<std::timed_mutex> lock(mutex, std::chrono::seconds(read_timeout));
+        if ( !lock.owns_lock() ) {
+            throw exceptions::not_implemented("Lock timeout initiating read");
+        }
         auto handler = [this, &error, &bytes_read](
             const boost::system::error_code &e, std::size_t bytes
         ) {
-            std::unique_lock<std::mutex> lock(mutex);
+            std::unique_lock<std::timed_mutex> lock(mutex, std::chrono::seconds(read_timeout));
+            if ( !lock.owns_lock() ) {
+                throw exceptions::not_implemented("Lock timeout starting async_read handler");
+            }
             std::cout << number << " Got " << bytes << " bytes with error " << e << std::endl;
             error = e;
             bytes_read += bytes;
