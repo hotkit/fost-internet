@@ -36,8 +36,8 @@ struct network_connection::server::state {
     boost::asio::io_service io_service;
     /// Set to true when we want the message pump to stop
     std::atomic<bool> stop;
-    /// Thread to run all of the IO tasks in
-    std::thread io_worker;
+    /// Threads to run all of the IO tasks in
+    std::vector<std::thread> io_workers;
     /// The accept socket itself
     boost::asio::ip::tcp::acceptor ipv4_listener;
     boost::asio::ip::tcp::acceptor ipv6_listener;
@@ -45,7 +45,8 @@ struct network_connection::server::state {
     /// The server callback
     std::function<void(network_connection)> callback;
 
-    state(const host &h, uint16_t p, std::function<void(network_connection)> fn)
+    state(const host &h, uint16_t p,
+            std::function<void(network_connection)> fn, const std::size_t threads)
     : stop(false), ipv4_listener(io_service), ipv6_listener(io_service), callback(fn) {
         // Report aborts
         asio::ip::tcp::endpoint endpoint(h.address(), p);
@@ -65,40 +66,33 @@ struct network_connection::server::state {
         post_handler(ipv4_listener);
         post_handler(ipv6_listener);
 
-        // Spin up the threads that are going to handle processing
-        std::timed_mutex mutex;
-        std::unique_lock<std::timed_mutex> lock(mutex);
-        std::condition_variable_any signal;
-        io_worker = std::move(std::thread([this, &mutex, &signal]() {
-            std::unique_lock<std::timed_mutex> lock(mutex, std::chrono::seconds(1));
-            if ( !lock.owns_lock() ) {
-                throw exceptions::not_implemented("Lock timeout starting server io_service thread");
-            }
-            log_thread() << "Signalling that io_service is about to run" << std::endl;
-            lock.unlock();
-            signal.notify_one();
-            bool again = false;
-            do {
-                again = false;
-                try {
-                    io_service.run();
-                    if ( !stop ) {
-                        log_thread() << "Run out of work, going again" << std::endl;
+        io_workers.reserve(threads);
+        for ( std::size_t thread{}; thread != threads; ++thread ) {
+            log_thread() << "Kicking off server thread " << thread << std::endl;
+            io_workers.emplace_back([this]() {
+                log_thread() << "Server io_service is about to run" << std::endl;
+                bool again = false;
+                do {
+                    again = false;
+                    try {
+                        io_service.run();
+                        if ( !stop ) {
+                            log_thread() << "Run out of work, going again" << std::endl;
+                            again = true;
+                            post_handler(ipv4_listener);
+                            post_handler(ipv6_listener);
+                        }
+                    } catch ( std::exception &e ) {
                         again = true;
-                        post_handler(ipv4_listener);
-                        post_handler(ipv6_listener);
+                        log_thread() << "**** Caught " << e.what() << std::endl;
+                    } catch ( ... ) {
+                        again = true;
+                        log_thread() << "Unknown exception caught" << std::endl;
                     }
-                } catch ( std::exception &e ) {
-                    again = true;
-                    log_thread() << "**** Caught " << e.what() << std::endl;
-                } catch ( ... ) {
-                    again = true;
-                    log_thread() << "Unknown exception caught" << std::endl;
-                }
-            } while ( again );
-            log_thread() << "Service thread stopping" << std::endl;
-        }));
-        signal.wait(lock);
+                } while ( again );
+                log_thread() << "Service thread stopping" << std::endl;
+            });
+        }
         log_thread() << "Start up of server complete" << std::endl;
     }
 
@@ -106,7 +100,7 @@ struct network_connection::server::state {
         log_thread() << "Server tear down requested" << std::endl;
         stop = true;
         io_service.stop();
-        io_worker.join();
+        std::for_each(io_workers.begin(), io_workers.end(), [](std::thread& t) { t.join(); });
     }
 
     void post_handler(boost::asio::ip::tcp::acceptor&listener) {
@@ -142,8 +136,8 @@ struct network_connection::server::state {
 
 
 network_connection::server::server(const host &h, uint16_t p,
-        std::function<void(network_connection)> fn)
-: pimpl(new state(h, p, fn)) {
+        std::function<void(network_connection)> fn, std::size_t threads)
+: pimpl(new state(h, p, fn, threads)) {
 }
 
 

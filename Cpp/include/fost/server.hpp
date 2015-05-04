@@ -21,7 +21,8 @@ namespace fostlib {
         std::unique_ptr<state> pimpl;
     public:
         /// Construct a server socket bound to the requested IP and port
-        server(const host &, uint16_t, std::function<void(network_connection)>);
+        server(const host &, uint16_t, std::function<void(network_connection)>,
+            std::size_t threads = 1);
 
         /// Destructor so we can use pimpl
         ~server();
