@@ -66,38 +66,38 @@ FSL_TEST_FUNCTION( read_timeouts ) {
 }
 
 
-// namespace {
-//     void send_data() {
-//         boost::asio::io_service service;
-//         host localhost;
-//         uint16_t port = 64543u;
-//         // Set up a server on a socket
-//         boost::asio::ip::tcp::acceptor server(service,
-//             boost::asio::ip::tcp::endpoint(localhost.address(), port));
-//         // Accept the connection
-//         std::unique_ptr<boost::asio::ip::tcp::socket> sock(
-//             new boost::asio::ip::tcp::socket(service));
-//         server.accept(*sock);
-//         network_connection server_cnx(service, std::move(sock));
-//         // Send a few KB of data
-//         std::string data(10240, '*');
-//         server_cnx << data;
-//     }
-// }
-// FSL_TEST_FUNCTION( early_closure ) {
-//     boost::timer timer;
-//     boost::asio::io_service service;
-//     host localhost;
-//     uint16_t port = 64543u;
-//     // Send some data to the socket
-//     worker server;
-//     server(send_data);
-//     // Wait for long enough for the server to start
-//     boost::this_thread::sleep(boost::posix_time::milliseconds(250));
-//     // Open a connection to the server
-//     network_connection client(localhost, port);
-//     // Try to read more data than the server is going to send before it closes the connection
-//     std::vector<unsigned char> data(20480);
-//     FSL_CHECK_EXCEPTION(client >> data, fostlib::exceptions::unexpected_eof&);
-//     FSL_CHECK(timer.elapsed() < 1);
-// }
+namespace {
+    void send_data() {
+        boost::asio::io_service service;
+        host localhost;
+        uint16_t port = 64543u;
+        // Set up a server on a socket
+        boost::asio::ip::tcp::acceptor server(service,
+            boost::asio::ip::tcp::endpoint(localhost.address(), port));
+        // Accept the connection
+        std::unique_ptr<boost::asio::ip::tcp::socket> sock(
+            new boost::asio::ip::tcp::socket(service));
+        server.accept(*sock);
+        network_connection server_cnx(service, std::move(sock));
+        // Send a few KB of data
+        std::string data(10240, '*');
+        server_cnx << data;
+    }
+}
+FSL_TEST_FUNCTION( early_closure ) {
+    boost::timer timer;
+    boost::asio::io_service service;
+    host localhost;
+    uint16_t port = 64543u;
+    // Send some data to the socket
+    worker server;
+    server(send_data);
+    // Wait for long enough for the server to start
+    boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+    // Open a connection to the server
+    network_connection client(localhost, port);
+    // Try to read more data than the server is going to send before it closes the connection
+    std::vector<unsigned char> data(20480);
+    FSL_CHECK_EXCEPTION(client >> data, fostlib::exceptions::unexpected_eof&);
+    FSL_CHECK(timer.elapsed() < 1);
+}
