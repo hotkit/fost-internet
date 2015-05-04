@@ -43,27 +43,27 @@ FSL_TEST_FUNCTION(small_text_sends) {
 }
 
 
-// namespace {
-//     void embed_acks(network_connection cnx) {
-//         std::vector<unsigned char> data(0x8000);
-//         for ( std::size_t block(0); block < 8; ++block) {
-//             FSL_CHECK_NOTHROW(cnx >> data);
-//             FSL_CHECK_NOTHROW(cnx << "ack\r\n");
-//         }
-//     }
-// }
-// FSL_TEST_FUNCTION( large_send_embed_acks ) {
-//     network_connection::server server(host("0"), 6218, embed_acks);
-//     network_connection cnx(host("localhost"), 6218);
-//     std::string data(0x8000, 'x');
-//     for ( std::size_t block(0); block < 8; ++block ) {
-//         fostlib::log::debug("Sending data block", block);
-//         FSL_CHECK_NOTHROW(cnx << data);
-//         std::string ack;
-//         FSL_CHECK_NOTHROW(cnx >> ack);
-//         FSL_CHECK_EQ(ack, "ack");
-//     }
-// }
+namespace {
+    void embed_acks(network_connection cnx) {
+        std::vector<unsigned char> data(0x8000);
+        for ( std::size_t block(0); block < 8; ++block) {
+            FSL_CHECK_NOTHROW(cnx >> data);
+            FSL_CHECK_NOTHROW(cnx << "ack\r\n");
+        }
+    }
+}
+FSL_TEST_FUNCTION( large_send_embed_acks ) {
+    network_connection::server server(host("0"), 6218, embed_acks, 2);
+    network_connection cnx(host("localhost"), 6218);
+    std::string data(0x8000, 'x');
+    for ( std::size_t block(0); block < 8; ++block ) {
+        fostlib::log::debug("Sending data block", block);
+        FSL_CHECK_NOTHROW(cnx << data);
+        std::string ack;
+        FSL_CHECK_NOTHROW(cnx >> ack);
+        FSL_CHECK_EQ(ack, "ack");
+    }
+}
 
 
 namespace {
