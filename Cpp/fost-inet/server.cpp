@@ -112,11 +112,11 @@ struct network_connection::server::state {
     void post_handler(boost::asio::ip::tcp::acceptor&listener) {
         log_thread() << "Going to listen for another connect" << std::endl;
         /*
-        * Socket handling is awkward. It's lifetime must at least match the accept handler
-        * This code assumes there is only a single accept handler that is waiting at any time
-        * and therefore the socket at this can easily leak.
-        * With C++14 we'll be able to capture the socket using std::move in the closure, but
-        * C++11 makes that awkward.
+            Socket handling is awkward. It's lifetime must at least match the accept handler
+            This code assumes there is only a single accept handler that is waiting at any time
+            and therefore the socket at this can easily leak.
+            With C++14 we'll be able to capture the socket using std::move in the closure, but
+            C++11 makes that awkward.
         */
         // TODO: Change to std::move captured in the closure in C++14
         asio::ip::tcp::socket *socket(new asio::ip::tcp::socket(io_service));
