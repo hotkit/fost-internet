@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.10)
+project(fost-internet-circleci)
 
 ## Opt in to tests
 add_custom_target(check)
@@ -6,7 +7,7 @@ add_custom_target(stress)
 
 add_subdirectory(fost-boost)
 add_subdirectory(fost-crypto)
-add_subdirectory(f5-cord)
-add_subdirectory(f5-threading)
+add_subdirectory(cord)
+add_subdirectory(threading)
 add_subdirectory(fost-base)
 add_subdirectory(.. fost-internet)

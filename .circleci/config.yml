@@ -43,6 +43,9 @@ jobs:
       - run:
           name: check tests
           command: ninja -j1 -C .circleci check
+      - run:
+          name: SSL tests
+          command: ninja -j1 -C .circleci fost-internet-ssl-tests
 
 workflows:
   all-tests:
